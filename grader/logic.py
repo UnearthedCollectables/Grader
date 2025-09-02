@@ -12,8 +12,9 @@ def calculate_centering(img):
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     coords = cv2.findNonZero(thresh)
     
+    # If detection fails, return None
     if coords is None:
-        return 1.0  # default perfect centering if nothing detected
+        return None
     
     x, y, w, h = cv2.boundingRect(coords)
     h_img, w_img = gray.shape
@@ -21,10 +22,15 @@ def calculate_centering(img):
     top, bottom = y, h_img - (y + h)
     
     # Avoid division by zero
-    horiz_ratio = 1.0 if max(left, right) == 0 else min(left, right) / max(left, right)
-    vert_ratio  = 1.0 if max(top, bottom) == 0 else min(top, bottom) / max(top, bottom)
+    if max(left, right) == 0 or max(top, bottom) == 0:
+        return None
+    
+    horiz_ratio = min(left, right) / max(left, right)
+    vert_ratio  = min(top, bottom) / max(top, bottom)
     
     return (horiz_ratio + vert_ratio) / 2
+    return (horiz_ratio + vert_ratio) / 2
+
 # Corners
 def calculate_corners(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
