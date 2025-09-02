@@ -6,32 +6,29 @@ def load_image(file):
     img = cv2.imdecode(bytes_data, cv2.IMREAD_COLOR)
     return img
 
-# Centering
+# --- Centering with detection check ---
 def calculate_centering(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     coords = cv2.findNonZero(thresh)
     
-    # If detection fails, return None
     if coords is None:
-        return None
+        return None  # detection failed
     
     x, y, w, h = cv2.boundingRect(coords)
     h_img, w_img = gray.shape
     left, right = x, w_img - (x + w)
     top, bottom = y, h_img - (y + h)
     
-    # Avoid division by zero
     if max(left, right) == 0 or max(top, bottom) == 0:
         return None
     
     horiz_ratio = min(left, right) / max(left, right)
-    vert_ratio  = min(top, bottom) / max(top, bottom)
+    vert_ratio = min(top, bottom) / max(top, bottom)
     
     return (horiz_ratio + vert_ratio) / 2
-    return (horiz_ratio + vert_ratio) / 2
 
-# Corners
+# --- Corners ---
 def calculate_corners(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     corners = cv2.goodFeaturesToTrack(gray, maxCorners=4, qualityLevel=0.01, minDistance=10)
@@ -40,7 +37,7 @@ def calculate_corners(img):
     score = min(len(corners)/4, 1)
     return score
 
-# Edges
+# --- Edges ---
 def calculate_edges(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 100, 200)
@@ -50,14 +47,14 @@ def calculate_edges(img):
     score = 1 - border_edges / (border*2*(h+w))
     return np.clip(score, 0, 1)
 
-# Surface
+# --- Surface ---
 def calculate_surface(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5,5), 0)
     std = blur.std()
     return np.clip(1 - std/100, 0, 1)
 
-# PSA
+# --- PSA Metrics ---
 def evaluate_psa_centering(ratio):
     if ratio >= 0.55: return 10
     elif ratio >= 0.50: return 9
@@ -73,7 +70,7 @@ def evaluate_psa_centering(ratio):
 def evaluate_psa_subgrade(score):
     return max(1, min(10, int(score*10)))
 
-# ACE
+# --- ACE Metrics ---
 def evaluate_ace_centering(ratio):
     if ratio >= 0.60: return 10
     elif ratio >= 0.55: return 9
@@ -88,18 +85,23 @@ def evaluate_ace_centering(ratio):
 def evaluate_ace_subgrade(score):
     return max(1, min(10, int(score*10)))
 
-# Overall
+# --- Overall Grade ---
 def calculate_overall_grade(sub_grades):
     return min(sub_grades.values())
 
-# Full Evaluation
+# --- Full Card Evaluation ---
 def evaluate_card(front_file, back_file, grading_style):
     front = load_image(front_file)
     back = load_image(back_file)
     
     front_center = calculate_centering(front)
     back_center = calculate_centering(back)
-    centering_ratio = (front_center + back_center)/2
+    
+    # If detection fails
+    if front_center is None or back_center is None:
+        return None, {"Error": "Card not detected properly. Please upload a clearer image."}
+    
+    centering_ratio = (front_center + back_center) / 2
     
     corners_ratio = min(calculate_corners(front), calculate_corners(back))
     edges_ratio = min(calculate_edges(front), calculate_edges(back))
